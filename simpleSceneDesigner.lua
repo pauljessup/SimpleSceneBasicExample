@@ -134,8 +134,9 @@ return {
                     if info.draw~=nil then self.customFunc.draw=info.draw end
                     if info.update~=nil then self.customFunc.update=info.update end
                     --layer functions, with similar update/etc. called per layer.
-                    if info.layers~=nil then self.custom.layers=info.layers end
+                    if info.layers~=nil then self.customFunc.layers=info.layers end
                 end
+                simpleScene:newScene({name="", x=0, y=0})
            end,
            setWindowColor=function(self, font, background, border)
                 self.windowColors.background=background
@@ -328,25 +329,6 @@ return {
 
                 table.sort(self.zsort, drawSort)
             end,
-            clampCameratoLayer=function(self, layer)
-                if self.layers[layer]~=nil then
-                    layer=self.layers[layer]
-                    if layer.canvas~=nil then
-                        local scale=self.scale.x*layer.scale
-                        local screenEdge={w=(love.graphics.getWidth()/(scale)), h=(love.graphics.getHeight()/(scale))}
-                        local edgew, edgeh=((layer.canvas:getWidth()*scale)+(layer.x*scale))-screenEdge.w/2, ((layer.canvas:getHeight()*scale)+(layer.y*scale))-screenEdge.h/2
-                        self.clamp={x=0, y=0, w=edgew, h=edgeh}
-                    end
-                end
-            end,
-            --forces the camera to center on an object.
-            centerObject=function(self, objectid)
-                local obj=self.objects[objectid]
-                self:clampCameratoLayer(obj.layer)
-                local layer=self.layers[obj.layer]
-                local center={w=(love.graphics.getWidth()), h=(love.graphics.getWidth())}
-                self:moveCamera(obj.x-center.w, obj.y-center.h)
-            end,
             updateLayer=function(self, layer, dt)
                 local id=layer
                 layer=self.layers[layer]
@@ -449,10 +431,21 @@ return {
                         --draw the grid if in editor and grid is set.
                         if self.editing then
                             if layer.id==self.activeLayer then
+                                if self.useGrid==true  then
+                                    love.graphics.setColor(1, 1, 1, 0.12)
+                                    for x=0, layer.canvas:getWidth(), self.gridSize do
+                                        love.graphics.line((-self.x)+x, -self.y, (-self.x)+x, layer.canvas:getHeight())
+                                    end
+                                    for y=0, layer.canvas:getHeight(), self.gridSize do
+                                        love.graphics.line((-self.x), (-self.y)+y, layer.canvas:getWidth(), (-self.y)+y)
+                                    end
+                                    love.graphics.setColor(1, 1, 1, 1)
+                                end
                                 self:mouseDrop()
                             end
                         end
                         self:drawObjects(layer.id) 
+                        --love.graphics.print(((self.y-layer.y)-layer.y)*(layer.scale), 200, 100)
                         love.graphics.setCanvas()
 
                         love.graphics.setColor(c[1], c[2], c[3], layer.alpha)
@@ -480,13 +473,6 @@ return {
                     self.x=self.x-x
                     self.y=self.y-y
 
-                    if self.clamp~=nil then 
-                        if self.x<self.clamp.x then self.x=self.clamp.x x=0 end
-                        if self.y<self.clamp.y then self.y=self.clamp.y y=0 end
-                        if self.x>self.clamp.w then self.x=self.clamp.w x=0 end
-                        if self.y>self.clamp.h then self.y=self.clamp.h y=0 end
-                    end
-
                     for i,v in ipairs(self.layers) do
                         local lx, ly=x, y 
                         if v.scroll.constant.x==true then lx=0 end 
@@ -495,7 +481,21 @@ return {
                     end
                 end
             end,
+            cameraFollowObject=function(self, obj)
+                if type(obj)=="number" then obj=self.objects[obj] end
+                local x, y=simpleScene:layertoScreen(obj.layer, obj.x, obj.y)
+                local layer=self.layers[obj.layer]
+                local scale=(self.scale.x*layer.scale)
+                local center={x=(love.graphics.getWidth()/2)+((obj.width)*scale), y=(love.graphics.getHeight()/2)}
+                local offsets={x=(layer.x*scale)+(self.x*self.scale.x), y=(layer.y*scale)+(self.y*self.scale.y)}
+                local edges={x=center.x, y=center.y-layer.y, w=(layer.canvas:getWidth())+(center.x), h=(layer.canvas:getHeight()*scale)-center.y}
+                local mx, my=0,0
+                if (x>edges.x and x<(edges.w))  then mx=obj.moveX end
+                --y isn't quite right.
+                if (y>edges.y and y<(edges.h))  then my=obj.moveY end
 
+                simpleScene:moveCamera(mx, my)
+            end,
             sceneToScreen=function(self, x, y)
                 x=x+self.x
                 y=y+self.y
@@ -511,6 +511,7 @@ return {
                 return x, y
             end,
             screenToLayer=function(self, layer, x, y)
+                --this is wrong, fi xit.
                 local l=self.layers[layer]
                 local scale=self.scale.x*l.scale
                 local ox, oy=l.x*scale, l.y*scale
@@ -520,12 +521,31 @@ return {
                 return x, y     
             end,
             layertoScreen=function(self, layer, x, y)
+                --this is correct.
                 local l=self.layers[layer]
-                local scale=self.scale.x/l.scale
-                local ox, oy=l.x/scale, l.y/scale
-                x=(x/scale)+ox
-                y=(y/scale)+oy
+                local scale=self.scale.x*l.scale
+                x=x-l.x 
+                y=y-l.y 
+                x=x*scale 
+                y=y*scale
                 return x, y
+            end,
+            --amount to move.
+            moveObject=function(self, obj, x, y)
+                local layer=self.layers[obj.layer]
+                local tx=obj.x+x 
+                local ty=obj.y+y
+
+                obj.moveX=nil 
+                obj.moveY=nil
+                if tx>0 and tx+obj.width<layer.canvas:getWidth() then 
+                    obj.moveX=x
+                    obj.x=tx 
+                end
+                if ty>0 and ty+obj.height<layer.canvas:getHeight() then 
+                    obj.moveY=y
+                    obj.y=ty
+                end
             end,
             moveLayer=function(self, layer, x, y)
                 local layer=self.layers[layer]
@@ -534,9 +554,18 @@ return {
                     move.x=move.x*-1
                     move.y=move.y*-1
                 end
-
+ 
                 layer.x=layer.x+(move.x)
                 layer.y=layer.y+(move.y)
+            end,
+            --loop plays the music set for this scene.
+            playMusic=function(self)
+                self:stopAllMusic()
+                if self.music~=nil and self.music.music~=nil and self.sceneMusic[self.music.music]~=nil then
+                    self.sceneMusic[self.music.music].music:setLooping(true)
+                    self.sceneMusic[self.music.music].music:play()
+                    self.playing=true
+                end
             end,
             draw=function(self, x, y)
                 if x==nil then x=self.x end
@@ -548,18 +577,6 @@ return {
                 end
 
                 if self.editing==true then 
-                --[[
-                    if self.useGrid==true then
-                        love.graphics.setColor(1, 1, 1, 0.12)
-                        for x=0, self.size.width, self.gridSize*self.scale.x do
-                            love.graphics.line((-self.x)+x, -self.y, (-self.x)+x, love.graphics.getHeight())
-                        end
-                        for y=0, self.size.width, self.gridSize*self.scale.y do
-                            love.graphics.line((-self.x), (-self.y)+y, love.graphics.getWidth(), (-self.y)+y)
-                        end
-                        love.graphics.setColor(1, 1, 1, 1)
-                    end
-                ]]
                     self:drawEditor() 
                     love.graphics.draw(self.canvas, 0, 0, 0, self.editorScale.x, self.editorScale.y)
                 end
@@ -568,7 +585,7 @@ return {
 
 ------------------------------------------------------------------------EDITOR FUNCTIONALITY----------------------------------------------------
             startEditing=function(self) self.editing=true end,
-            endEditing=function(self) self.editing=true end,
+            endEditing=function(self) self.editing=false end,
 
             addObjectType=function(self, type)
                 if type.image~=nil then 
@@ -1451,9 +1468,7 @@ return {
                                 if not self.playing then
                                    if (self:mouseCollide({x=x, y=25, width=24, height=24}, true))  and love.mouse.isDown(1) and self.cooldown==0.0 then
                                         self.cooldown=1.0
-                                        self.sceneMusic[self.music.music].music:setLooping(true)
-                                        self.sceneMusic[self.music.music].music:play()
-                                        self.playing=true
+                                        self:playMusic()
                                    end
                                 else
                                     if (self:mouseCollide({x=x, y=25, width=24, height=24}, true))  and love.mouse.isDown(1) and self.cooldown==0.0 then
@@ -1642,7 +1657,7 @@ return {
                                         local mx, my=self:scaleMousePosition(true)
 
                                         --move layer if that's the tool
-                                        if self.editState=="move layer" and love.mouse.isDown(1) then
+                                        if self.editState=="move layer" and love.mouse.isDown(1) and self.cooldown==0.0 then
                                             local mx, my=self:scaleMousePosition(false)
                                             if self.last==nil then self.last={x=mx, y=my} end
                                             self:moveLayer(self.activeLayer, mx-self.last.x, my-self.last.y)
@@ -1654,7 +1669,7 @@ return {
 
                                         --move camera if that's the tool
                                         
-                                        if self.editState=="move camera" and love.mouse.isDown(1) then
+                                        if self.editState=="move camera" and love.mouse.isDown(1) and self.cooldown==0.0 then
                                             local mx, my=self:scaleMousePosition(false)
                                             if self.last2==nil then self.last2={x=mx, y=my} end
                                             self:moveCamera((mx-self.last2.x)*-1, (my-self.last2.y)*-1)

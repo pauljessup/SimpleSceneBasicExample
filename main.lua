@@ -22,14 +22,14 @@ function love.load()
                                 update=function(self, obj, simpleScene, dt)
                                     local move={x=0, y=0}
                                     --walk the player object if key is pressed.
-                                    if love.keyboard.isDown("up") then  move.y=move.y-(30*dt) end 
-                                    if love.keyboard.isDown("down") then move.y=move.y+(30*dt) end 
-                                    if love.keyboard.isDown("left") then move.x=move.x-(30*dt) end
-                                    if love.keyboard.isDown("right") then move.x=move.x+(30*dt) end
+                                    if love.keyboard.isDown("up") then  move.y=move.y-1 end 
+                                    if love.keyboard.isDown("down") then move.y=move.y+1 end 
+                                    if love.keyboard.isDown("left") then move.x=move.x-1 end
+                                    if love.keyboard.isDown("right") then move.x=move.x+1 end
                                     
                                     --move the object, then have the camera follow the player.
                                     simpleScene:moveObject(obj, move.x, move.y)
-                                    --simpleScene:cameraFollowObject(obj)
+                                    simpleScene:cameraFollowObject(obj)
                                     --simpleScene:cameraClampLayer(obj.layer)
                                 end,
                             })

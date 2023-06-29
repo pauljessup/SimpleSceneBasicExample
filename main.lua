@@ -4,7 +4,46 @@ love.graphics.setDefaultFilter("nearest","nearest")
 
 local cooldown=0.0 --for keypresses, so they don't repeat a billion times.
 
+----------------------------THIS IS ALL ANIMATION STUFF FOR DOING SPRITE ANIMATIONS. NOT PART OF SIMPLESCENEDESIGNER------
+--this is the basic quad for animations, since all the sprites are the same size/etc.
+--local animQuad=love.graphics.newQuad()
+local animQuads={}
+
+
+--these are the animation functions. these are not a part of simpleSceneDesigner,
+--just an example of how to do animations. Hopefully this will give you an idea
+--on how to impliment your own animation library/functions in the update and draw methods
+--for each object.
+local function initAnimation()
+    --this creates our quad. We have animations for each cardinal direction.
+    local sets={"down", "left", "right", "up"}
+    for y,v in ipairs(sets) do
+        animQuads[v]={}
+        --four frames per animation. each frame is 24x24
+        for x=1, 4 do
+            animQuads[v][x] = love.graphics.newQuad(x*24, y*24, 24, 24, 96, 96)
+        end
+    end
+end
+--this
+local function updateAnimation(animation)
+    if animation.timer>1.0 then 
+        animation.timer=0.0
+        animation.frame=animation.frame+1
+        if animation.frame>4 then animation.frame=0 end
+    else
+        animation.timer=animation.timer+0.1
+    end
+end
+local function drawAnimation(image, animation, x, y)
+    love.graphics.draw(image, animQuads["down"][1], x, y)
+end
+-------------------------------END ANIMATIONS-----------------------------------------------------------
+
 function love.load() 
+    --we init the animation system. Not part of Simple Scene, you can roll your own, use this one, or use a library.
+    initAnimation()
+
     --when we init we set the directories where it will find stuff.
     --default is same directory as source files, or "/"
     --we set the editor asset directory to be editorAssets
@@ -16,10 +55,25 @@ function love.load()
                         layers="backgrounds/"}})
 
     --adding our object types
+    --these are things we can add on our scene, like trees, NPC's, player, enemies, etc.
+
 
     --the player.
+    --as you can see, with each type we can also add additional functions to be called during the gameplay
+    --available functions to add-
+    -- init(self, obj, simpleScene) called when object is added to the map
+    -- update(self, obj, simpleScene, dt) called each update for the object.
+    -- draw(self, obj, simplScene) this is called instead of the draw. The others don't replace the original function, but this will. Good for animations.
     simpleScene:addObjectType({type="player", image="player.png",
+                                init=function(self, obj, simpleScene)
+                                    --set up the animation. Not a part of simpleScene, custom code. Use your own, if you wish.
+                                    obj.animation={frame=1, dir="down", timer=0.0, speed=1.0}
+                                    --we make this seperate than obj.image
+                                    --obj.animImage=love.graphics.newImage("sprites/" .. obj.type .. "anim.png")
+                                end,
                                 update=function(self, obj, simpleScene, dt)
+                                     updateAnimation(obj.animation)
+
                                     local move={x=0, y=0}
                                     --walk the player object if key is pressed.
                                     if love.keyboard.isDown("up") then  move.y=move.y-1 end 
@@ -32,6 +86,9 @@ function love.load()
                                     simpleScene:cameraFollowObject(obj)
                                     simpleScene:cameraClampLayer(obj.layer)
                                 end,
+                                --draw=function(self, obj, simpleScene)
+                                    --drawAnimation(obj.animImage, animQuads, obj.x, obj.y)
+                                --end,
                             })
 
     --we have four npc's, numerated, so we'll do this quick.
@@ -41,8 +98,6 @@ function love.load()
 
     --and now a collision object that does nothing but collide.
     simpleScene:addObjectType({type="collision", image="collision.png",
-                                update=function(self, obj, simpleScene, dt)
-                                end,
                                 draw=function(self, obj, simpleScene)
                                     --only draw if we're in the editor.
                                     if simpleScene.editing==true then
@@ -51,8 +106,10 @@ function love.load()
                                 end,
                             })
 
+    --now we load the scene. This is our test scene
     simpleScene:load("treeTest.scene")
-    --simpleScene:playMusic()
+    --and let's play some music
+    simpleScene:playMusic()
 end
 
 function love.update(dt)
@@ -71,7 +128,10 @@ function love.update(dt)
 end
 
 function love.draw()
+    --draw the game.
     simpleScene:draw()
+
+    --now we draw a simple text telling us to press escape to switch between game and editor.
     love.graphics.scale(2, 2)
 
     local text="-press escape to go to scene designer-"

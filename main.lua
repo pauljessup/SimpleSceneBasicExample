@@ -30,7 +30,7 @@ function love.load()
                                     --move the object, then have the camera follow the player.
                                     simpleScene:moveObject(obj, move.x, move.y)
                                     simpleScene:cameraFollowObject(obj)
-                                    --simpleScene:cameraClampLayer(obj.layer)
+                                    simpleScene:cameraClampLayer(obj.layer)
                                 end,
                             })
 
@@ -52,8 +52,7 @@ function love.load()
                             })
 
     simpleScene:load("treeTest.scene")
-    simpleScene:playMusic()
-    --simpleScene:startEditing()
+    --simpleScene:playMusic()
 end
 
 function love.update(dt)

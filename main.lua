@@ -4,7 +4,6 @@ love.graphics.setDefaultFilter("nearest","nearest")
 
 local cooldown=0.0 --for keypresses, so they don't repeat a billion times.
 
-
 function love.load() 
     --when we init we set the directories where it will find stuff.
     --default is same directory as source files, or "/"
@@ -28,13 +27,10 @@ function love.load()
                                     if love.keyboard.isDown("left") then move.x=move.x-(30*dt) end
                                     if love.keyboard.isDown("right") then move.x=move.x+(30*dt) end
                                     
+                                    --move the object, then have the camera follow the player.
                                     simpleScene:moveObject(obj, move.x, move.y)
-                                    simpleScene:cameraFollowObject(obj)
-                                    --have the camera move the same amount if passed center of screen
-
-                                    --if x>((love.graphics.getWidth()/simpleScene.scale.x)/2) and y>((love.graphics.getHeight()/simpleScene.scale.y)/2) then
-                                        --simpleScene:moveCamera(move.x, move.y)
-                                    --end
+                                    --simpleScene:cameraFollowObject(obj)
+                                    --simpleScene:cameraClampLayer(obj.layer)
                                 end,
                             })
 
@@ -43,24 +39,17 @@ function love.load()
         simpleScene:addObjectType({type="npc" .. i , image="npc" .. i .. ".png",})
     end
 
-    --as you can see here, you can add draw functions to the object type that are called instead of the regular draw function.
-    --this allows for animations/etc. what's passed- self is template, object is the instanatiated object, simpleScene is the simpleScene table.
-    --other functions-
-    -- init(self, object, simpleScene)
-    -- update(self, object, simpleScene, dt)
-    -- draw(self, object, simplescene)
-    --[[
-    simpleScene:addObjectType({type="npc", image="emily.png",
-                                        draw=function(self, object, simpleScene)
-                                            love.graphics.draw(self.image, object.x, object.y)
-                                        end,
-                                        })
-
-    simpleScene:addObjectType({type="tree", image="tree.png"})
-
-    simpleScene:newScene({name="", x=0, y=0})
-    simpleScene:addObject({type="npc", x=100, y=20, layer=1})
-    ]]
+    --and now a collision object that does nothing but collide.
+    simpleScene:addObjectType({type="collision", image="collision.png",
+                                update=function(self, obj, simpleScene, dt)
+                                end,
+                                draw=function(self, obj, simpleScene)
+                                    --only draw if we're in the editor.
+                                    if simpleScene.editing==true then
+                                        love.graphics.draw(self.image, obj.x, obj.y)
+                                    end
+                                end,
+                            })
 
     simpleScene:load("treeTest.scene")
     simpleScene:playMusic()
@@ -88,6 +77,7 @@ function love.draw()
 
     local text="-press escape to go to scene designer-"
     local font=love.graphics.getFont()
+    
     if simpleScene.editing then text="-press escape to return to game-" end
     love.graphics.print(text, (love.graphics.getHeight()/2)-(font:getWidth(text)/2), (love.graphics.getHeight()/2)-(font:getHeight()+5))
 end

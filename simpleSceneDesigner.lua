@@ -472,7 +472,6 @@ return {
                         else
                             local x, y=(layer.scroll.speed*layer.scale)*self.x, (layer.scroll.speed*layer.scale)*self.y
                             love.graphics.draw(layer.canvas, (x*-1)+(layer.x*(self.scale.x*layer.scale)), (y*-1)+(layer.y*(self.scale.y*layer.scale)), 0, self.scale.x*layer.scale, self.scale.y*layer.scale)
-
                         end
                         love.graphics.setColor(c[1], c[2], c[3], c[4])
                 end

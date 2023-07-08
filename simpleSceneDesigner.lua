@@ -532,12 +532,50 @@ return {
 
                 return x, y     
             end,
+            --returns a rect of the portion of the layer on screen
+            --this can be used to speed up bulk on screen object detection, too
+            layerOnscreen=function(self, layer)
+                if self.layers[layer]~=nil then layer=self.layers[layer] else return nil end
+                local ox, oy=(layer.scroll.speed*layer.scale)*self.x, (layer.scroll.speed*layer.scale)*self.y --offset x and y
+                --get scaled edges
+                local x, y=(ox*-1)+((layer.x)*(self.scale.x*layer.scale)), (oy*-1)+((layer.y)*(self.scale.y*layer.scale))
+                local w, h=x+(layer.canvas:getWidth()*(self.scale.x*layer.scale)), y+(layer.canvas:getHeight()*(self.scale.y*layer.scale))
+                local screen={w=love.graphics.getWidth(), h=love.graphics.getHeight()}
+                --now subtract the screen edge from the layer edge position
+                if w>screen.w then w=w-screen.w end 
+                if h>screen.h then h=h-screen.h end 
+                if x<0 then x=x*-1 end 
+                if y<0 then y=y*-1 end 
+                return {x=x, y=y, w=w, h=h}
+            end,
+            --this gets a list of object id for every object visible on the screen.
+            --good for things like speeding up collision detection & layer drawing.
+            allObjectsOnScreen=function(self, layer)
+                local objs={}
+                local screen=self:layerOnscreen(layer)
+                if layer~=nil and self.layers[layer]~=nil then
+                    layer=self.layers[layer]
+                end
+                for i,v in ipairs(self.objects) do
+                    if self:objectOnScreen(v, screen) and (layer==nil or v.layer==layer) then objs[i]=true else objs[i]=false end
+                end
+                return objs                
+            end,
+            objectOnScreen=function(self, obj, screen)
+                if screen==nil then 
+                    local x, y=self:layertoScreen(obj.layer, obj.x, obj.y)
+                    local layer=self.layers[obj.layer]
+                    if x>0 and y>0 and x+(obj.width*(layer.scale*self.scale.x))<love.graphics.getWidth() and y+(obj.height*(layer.scale*self.scale.y))<love.graphics.getHeight() then return true end                    
+                else
+                    if obj.x>screen.x and obj.y>screen.y and (obj.x+obj.width)<screen.w and(obj.y+obj.height)<screen.h then return true end
+                end
+                return false
+            end,
             layertoScreen=function(self, layer, x, y)
                 if self.layers[layer]~=nil then layer=self.layers[layer] end
                 local ox, oy=(layer.scroll.speed*layer.scale)*self.x, (layer.scroll.speed*layer.scale)*self.y
                 x=(ox*-1)+(x*(self.scale.x*layer.scale))+(layer.x)*(self.scale.x*layer.scale)
                 y=(oy*-1)+(y*(self.scale.x*layer.scale))+(layer.y)*(self.scale.y*layer.scale)
-                
                 return x, y
             end,
             --amount to move.

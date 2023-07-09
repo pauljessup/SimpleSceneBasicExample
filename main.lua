@@ -95,8 +95,6 @@ function love.load()
                                     --update animation if you moved.
                                     if move.x~=0 or move.y~=0 then updateAnimation(obj.animation) end
 
-                                    --check collision. if no collide, then move.
-                                    local collided=false
                                     for i,v in ipairs(simpleScene.objects) do 
                                         --don't collide self.
                                         if v.id~=obj.id then
@@ -105,22 +103,23 @@ function love.load()
                                             --so we have to add 6 pixels to our bounding box to make up for this.
                                             --in a normal game, it would be better to just set a bounding box for each sprite.
                                             --since this is an example, this is far quicker.
-                                            local playerBoundingBox={x=(obj.x+move.x)+6, y=(obj.y+move.y)+6, w=obj.width-6, h=obj.height-6}
                                             local objBoundingBox={x=v.x+6, y=v.y+6, w=v.width-6, h=v.height-6}
                                             
                                             --the only one that is not like that is collide.
                                             if v.type=="collision" then objBoundingBox={x=v.x, y=v.y, w=v.width, h=v.height} end
 
-                                            if collide(playerBoundingBox, objBoundingBox) then  collided=true end
+                                            --check move x collide
+                                            if collide({x=(obj.x+move.x)+6, y=(obj.y)+6, w=obj.width-6, h=obj.height-6}, objBoundingBox) then  move.x=0  end
+                                            --check move y collide
+                                            if collide({x=(obj.x)+6, y=(obj.y+move.y)+6, w=obj.width-6, h=obj.height-6}, objBoundingBox) then  move.y=0  end
+
                                         end
                                     end
 
-                                    if not collided then
                                         --move the object, then have the camera follow the player.
                                         simpleScene:moveObject(obj, move.x, move.y)
                                         simpleScene:cameraFollowObject(obj)
                                         simpleScene:cameraClampLayer(obj.layer)
-                                    end
                                 end,
                                 draw=function(self, obj, simpleScene)
                                     drawAnimation(obj.animImage, obj.animation, obj.x, obj.y)
